@@ -1,0 +1,40 @@
+{
+  "name": "opencode-commit",
+  "version": "0.1.0",
+  "description": "OpenCode plugin that generates Conventional Commit messages via a dedicated sub-agent",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "agents",
+    "commands",
+    "opencode.example.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "git",
+    "commit",
+    "conventional-commits"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@opencode-ai/plugin": "^1.3.3"
+  },
+  "devDependencies": {
+    "@opencode-ai/sdk": "^1.3.3",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

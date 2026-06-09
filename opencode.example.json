@@ -1,0 +1,17 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    [
+      "opencode-commit",
+      {
+        "agent": "commit-writer",
+        "maxDiffChars": 12000
+      }
+    ]
+  ],
+  "agent": {
+    "commit-writer": {
+      "model": "your-provider/your-model"
+    }
+  }
+}
