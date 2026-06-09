@@ -2,7 +2,7 @@
 description: Generates conventional commit messages from git diffs
 mode: subagent
 hidden: true
-model: anthropic/claude-haiku-4-20250514
+model: opencode-go/deepseek-v4-flash
 temperature: 0.1
 permission:
   edit: deny

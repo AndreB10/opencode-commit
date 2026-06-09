@@ -1,4 +1,4 @@
-# opencode-commit
+# @andre-barbosa/opencode-commit
 
 OpenCode plugin that generates **Conventional Commits** messages from staged git changes using a dedicated sub-agent on a model you choose.
 
@@ -45,19 +45,24 @@ cp commands/commit.md .opencode/commands/commit.md
   ],
   "agent": {
     "commit-writer": {
-      "model": "anthropic/claude-haiku-4-20250514"
+      "model": "opencode-go/deepseek-v4-flash"
     }
   }
 }
 ```
 
-**From npm** (when published):
+**From npm:**
 
 ```json
 {
   "plugin": [
-    ["opencode-commit", { "agent": "commit-writer" }]
-  ]
+    ["@andre-barbosa/opencode-commit", { "agent": "commit-writer" }]
+  ],
+  "agent": {
+    "commit-writer": {
+      "model": "opencode-go/deepseek-v4-flash"
+    }
+  }
 }
 ```
 
@@ -68,7 +73,7 @@ See [opencode.example.json](opencode.example.json) for a full example.
 Edit the model on the `commit-writer` agent in `opencode.json` or in `.opencode/agents/commit-writer.md`:
 
 ```yaml
-model: anthropic/claude-haiku-4-20250514
+model: opencode-go/deepseek-v4-flash
 ```
 
 Run `opencode models` to list available models.

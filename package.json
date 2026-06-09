@@ -1,6 +1,6 @@
 {
-  "name": "opencode-commit",
-  "version": "0.1.0",
+  "name": "@andre-barbosa/opencode-commit",
+  "version": "0.1.1",
   "description": "OpenCode plugin that generates Conventional Commit messages via a dedicated sub-agent",
   "type": "module",
   "main": "src/index.ts",
@@ -27,6 +27,17 @@
     "conventional-commits"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AndreB10/opencode-commit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AndreB10/opencode-commit/issues"
+  },
+  "homepage": "https://github.com/AndreB10/opencode-commit#readme",
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@opencode-ai/plugin": "^1.3.3"
   },
