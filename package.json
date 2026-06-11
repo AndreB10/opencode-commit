@@ -1,7 +1,7 @@
 {
   "name": "@andre-barbosa/opencode-commit",
-  "version": "0.1.2",
-  "description": "OpenCode plugin that generates Conventional Commit messages via a dedicated sub-agent",
+  "version": "0.1.3",
+  "description": "OpenCode plugin that generates Conventional Commit messages via /commit using a configured model",
   "type": "module",
   "main": "src/index.ts",
   "exports": {
@@ -9,7 +9,6 @@
   },
   "files": [
     "src",
-    "agents",
     "commands",
     "opencode.example.json",
     "README.md",

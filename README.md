@@ -1,33 +1,25 @@
 # @andre-barbosa/opencode-commit
 
-OpenCode plugin that generates **Conventional Commits** messages from staged git changes using a dedicated sub-agent on a model you choose.
+OpenCode plugin that generates **Conventional Commits** messages from uncommitted git changes using a model you choose.
 
 Run `/commit` in the OpenCode TUI to get a suggested message like `feat(auth): add oauth login flow` — copy it and commit manually.
 
 ## Features
 
 - `/commit` slash command (display only, no auto-commit)
-- Dedicated hidden `commit-writer` sub-agent with its own model
+- Dedicated model for commit message generation
 - Conventional Commits format enforced (`feat(scope): ...`, `fix(scope): ...`, etc.)
 - Optional hint: `/commit emphasize breaking API change`
-- Uses staged diff, branch name, and recent commit subjects for context
+- Uses staged diffs, unstaged diffs, non-ignored untracked filenames, branch name, and recent commit subjects for context
 
 ## Requirements
 
 - [OpenCode](https://opencode.ai/) with plugin support
-- A git repository with staged changes
+- A git repository with uncommitted changes
 
 ## Installation
 
-### 1. Copy agent and command templates
-
-```bash
-mkdir -p .opencode/agents .opencode/commands
-cp agents/commit-writer.md .opencode/agents/commit-writer.md
-cp commands/commit.md .opencode/commands/commit.md
-```
-
-### 2. Configure the plugin
+### Configure the plugin
 
 **Local development** (this repo):
 
@@ -38,16 +30,11 @@ cp commands/commit.md .opencode/commands/commit.md
     [
       "file:///C:/absolute/path/to/opencode-commit/src/index.ts",
       {
-        "agent": "commit-writer",
+        "model": "opencode-go/deepseek-v4-flash",
         "maxDiffChars": 12000
       }
     ]
-  ],
-  "agent": {
-    "commit-writer": {
-      "model": "opencode-go/deepseek-v4-flash"
-    }
-  }
+  ]
 }
 ```
 
@@ -55,35 +42,24 @@ cp commands/commit.md .opencode/commands/commit.md
 
 ```json
 {
+  "$schema": "https://opencode.ai/config.json",
   "plugin": [
-    ["@andre-barbosa/opencode-commit", { "agent": "commit-writer" }]
-  ],
-  "agent": {
-    "commit-writer": {
-      "model": "opencode-go/deepseek-v4-flash"
-    }
-  }
+    ["@andre-barbosa/opencode-commit", { "model": "opencode-go/deepseek-v4-flash" }]
+  ]
 }
 ```
 
 See [opencode.example.json](opencode.example.json) for a full example.
 
-### 3. Set your model
-
-Edit the model on the `commit-writer` agent in `opencode.json` or in `.opencode/agents/commit-writer.md`:
-
-```yaml
-model: opencode-go/deepseek-v4-flash
-```
-
 Run `opencode models` to list available models.
+Restart OpenCode after editing config.
 
 ## Usage
 
-1. Stage your changes: `git add ...`
-2. Open OpenCode in the project
-3. Run `/commit`
-4. Copy the suggested message and commit: `git commit -m "feat(scope): ..."`
+1. Make changes in a git repository. Staging is optional.
+2. Open OpenCode in the project.
+3. Run `/commit`.
+4. Copy the suggested message and commit: `git commit -m "feat(scope): ..."`.
 
 Optional extra instruction:
 
@@ -97,8 +73,18 @@ When loading the plugin as a tuple `[name, options]`:
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `agent` | `commit-writer` | Sub-agent name to invoke |
-| `maxDiffChars` | `12000` | Max staged diff characters sent to the sub-agent |
+| `model` | required | Model to use in `provider/model-id` format |
+| `maxDiffChars` | `12000` | Max tracked diff characters sent across staged and unstaged diffs |
+
+## Change scope
+
+`/commit` analyzes:
+
+- Staged tracked changes from `git diff --staged`
+- Unstaged tracked changes from `git diff`
+- Non-ignored untracked filenames from `git ls-files --others --exclude-standard`
+
+It does not read untracked file contents and does not ask Git for ignored files.
 
 ## Commit message format
 
@@ -117,8 +103,7 @@ Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `buil
 ```
 opencode-commit/
 ├── src/                  # plugin source
-├── agents/               # commit-writer sub-agent template
-├── commands/             # /commit command stub
+├── commands/             # optional /commit command stub
 └── opencode.example.json
 ```
 

@@ -1,9 +1,14 @@
 import type { createOpencodeClient } from "@opencode-ai/sdk";
-import type { AgentInfo, ModelRef } from "./types.js";
-import { buildCommitPrompt, stripCodeFences } from "./prompt.js";
+import type { ModelRef } from "./types.js";
+import {
+  buildCommitPrompt,
+  COMMIT_SYSTEM_PROMPT,
+  stripCodeFences,
+} from "./prompt.js";
 import type { GitContext } from "./types.js";
 
 type Client = ReturnType<typeof createOpencodeClient>;
+const COMMIT_AGENT = "plan";
 
 function extractText(parts: Array<{ type?: string; text?: string }>): string {
   return parts
@@ -16,27 +21,6 @@ function extractText(parts: Array<{ type?: string; text?: string }>): string {
 export function formatModelRef(model?: ModelRef): string {
   if (!model) return "default";
   return `${model.providerID}/${model.modelID}`;
-}
-
-export async function fetchAgent(
-  client: Client,
-  agentName: string,
-): Promise<AgentInfo | undefined> {
-  const { data, error } = await client.app.agents();
-  if (error || !Array.isArray(data)) return undefined;
-
-  const agent = data.find((entry) => entry.name === agentName);
-  if (!agent) return undefined;
-
-  return {
-    name: agent.name,
-    model: agent.model
-      ? {
-          providerID: agent.model.providerID,
-          modelID: agent.model.modelID,
-        }
-      : undefined,
-  };
 }
 
 async function createChildSession(
@@ -60,8 +44,7 @@ async function createChildSession(
 export async function generateCommitMessage(input: {
   client: Client;
   parentSessionID: string;
-  agentName: string;
-  agent: AgentInfo;
+  model: ModelRef;
   context: GitContext;
   userHint?: string;
 }): Promise<{ message: string; childSessionID: string; modelLabel: string }> {
@@ -71,18 +54,12 @@ export async function generateCommitMessage(input: {
   );
 
   const prompt = buildCommitPrompt(input.context, input.userHint);
-  const body: {
-    agent: string;
-    parts: Array<{ type: "text"; text: string }>;
-    model?: ModelRef;
-  } = {
-    agent: input.agentName,
-    parts: [{ type: "text", text: prompt }],
+  const body = {
+    agent: COMMIT_AGENT,
+    model: input.model,
+    system: COMMIT_SYSTEM_PROMPT,
+    parts: [{ type: "text" as const, text: prompt }],
   };
-
-  if (input.agent.model) {
-    body.model = input.agent.model;
-  }
 
   const { data: result, error } = await input.client.session.prompt({
     path: { id: childSessionID },
@@ -90,7 +67,7 @@ export async function generateCommitMessage(input: {
   });
 
   if (error) {
-    throw new Error(`Sub-agent prompt failed: ${String(error)}`);
+    throw new Error(`Commit prompt failed: ${String(error)}`);
   }
 
   const parts =
@@ -100,13 +77,13 @@ export async function generateCommitMessage(input: {
 
   if (!rawText) {
     throw new Error(
-      `Sub-agent returned no text. Child session: ${childSessionID}`,
+      `Commit model returned no text. Child session: ${childSessionID}`,
     );
   }
 
   return {
     message: stripCodeFences(rawText),
     childSessionID,
-    modelLabel: formatModelRef(input.agent.model),
+    modelLabel: formatModelRef(input.model),
   };
 }

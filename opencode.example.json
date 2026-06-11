@@ -4,14 +4,9 @@
     [
       "@andre-barbosa/opencode-commit",
       {
-        "agent": "commit-writer",
+        "model": "your-provider/your-model",
         "maxDiffChars": 12000
       }
     ]
-  ],
-  "agent": {
-    "commit-writer": {
-      "model": "opencode-go/deepseek-v4-flash"
-    }
-  }
+  ]
 }
