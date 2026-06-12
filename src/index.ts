@@ -16,7 +16,6 @@ const COMMAND_NAME = "commit";
 const COMMAND_DESCRIPTION =
   "Generate a commit message or split commit plan from uncommitted changes";
 const COMMAND_TEMPLATE = "Handled by the opencode-commit plugin.";
-const SKIP_ERROR = "skip";
 
 function textPart(text: string): Part {
   return { type: "text", text } as Part;
@@ -68,10 +67,6 @@ function formatFolderList(folders: string[]): string {
   return folders.map((folder) => `\`${folder}\``).join(", ");
 }
 
-const skipCommand = (): never => {
-  throw new Error(SKIP_ERROR);
-};
-
 export const OpenCodeCommitPlugin: Plugin = async (
   { client, $, worktree },
   options?: PluginOptions,
@@ -101,7 +96,6 @@ export const OpenCodeCommitPlugin: Plugin = async (
       cfg.command[COMMAND_NAME] = {
         description: COMMAND_DESCRIPTION,
         template: COMMAND_TEMPLATE,
-        subtask: true,
       };
 
       if (config.model) {
@@ -123,7 +117,7 @@ export const OpenCodeCommitPlugin: Plugin = async (
               ].join("\n"),
             ),
           ];
-          return skipCommand();
+          return;
         }
 
         const model = parseModelRef(config.model);
@@ -135,7 +129,7 @@ export const OpenCodeCommitPlugin: Plugin = async (
               "Not a git repository. Run `/commit` from inside a git worktree.",
             ),
           ];
-          return skipCommand();
+          return;
         }
 
         const context = await gatherGitContext($, worktree, config.maxDiffChars);
@@ -146,7 +140,7 @@ export const OpenCodeCommitPlugin: Plugin = async (
               "No uncommitted changes found. Make changes and run `/commit` again.",
             ),
           ];
-          return skipCommand();
+          return;
         }
 
         let groups: CommitGroup[] | undefined;
@@ -162,7 +156,7 @@ export const OpenCodeCommitPlugin: Plugin = async (
                 ? `requested folder(s): ${formatFolderList(request.folders)}`
                 : "changed folders";
             output.parts = [textPart(`No changes found for ${target}.`)];
-            return skipCommand();
+            return;
           }
         }
 
@@ -186,12 +180,8 @@ export const OpenCodeCommitPlugin: Plugin = async (
         output.parts = [
           textPart(formatOutput({ ...result, request, missingFolders })),
         ];
-        return skipCommand();
+        return;
       } catch (error) {
-        if (error instanceof Error && error.message === SKIP_ERROR) {
-          throw error;
-        }
-
         await log("error", "Commit message generation failed", {
           error: String(error),
           sessionID: input.sessionID,
@@ -200,7 +190,7 @@ export const OpenCodeCommitPlugin: Plugin = async (
         output.parts = [
           textPart(`Failed to generate commit message: ${String(error)}`),
         ];
-        return skipCommand();
+        return;
       }
     },
   };
