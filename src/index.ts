@@ -21,6 +21,10 @@ function textPart(text: string): Part {
   return { type: "text", text } as Part;
 }
 
+function replaceOutputParts(output: { parts: Part[] }, ...parts: Part[]): void {
+  output.parts.splice(0, output.parts.length, ...parts);
+}
+
 function formatOutput(input: {
   content: string;
   modelLabel: string;
@@ -107,7 +111,8 @@ export const OpenCodeCommitPlugin: Plugin = async (
 
       try {
         if (!config.model) {
-          output.parts = [
+          replaceOutputParts(
+            output,
             textPart(
               [
                 "No commit model configured.",
@@ -116,7 +121,7 @@ export const OpenCodeCommitPlugin: Plugin = async (
                 "`[\"@andre-barbosa/opencode-commit\", { \"model\": \"opencode-go/deepseek-v4-flash\" }]`",
               ].join("\n"),
             ),
-          ];
+          );
           return;
         }
 
@@ -124,22 +129,24 @@ export const OpenCodeCommitPlugin: Plugin = async (
         const request = parseCommitRequest(input.arguments);
 
         if (!(await isGitRepo($, worktree))) {
-          output.parts = [
+          replaceOutputParts(
+            output,
             textPart(
               "Not a git repository. Run `/commit` from inside a git worktree.",
             ),
-          ];
+          );
           return;
         }
 
         const context = await gatherGitContext($, worktree, config.maxDiffChars);
 
         if (!context.hasUncommittedChanges) {
-          output.parts = [
+          replaceOutputParts(
+            output,
             textPart(
               "No uncommitted changes found. Make changes and run `/commit` again.",
             ),
-          ];
+          );
           return;
         }
 
@@ -155,7 +162,7 @@ export const OpenCodeCommitPlugin: Plugin = async (
               request.folders.length > 0
                 ? `requested folder(s): ${formatFolderList(request.folders)}`
                 : "changed folders";
-            output.parts = [textPart(`No changes found for ${target}.`)];
+            replaceOutputParts(output, textPart(`No changes found for ${target}.`));
             return;
           }
         }
@@ -177,9 +184,10 @@ export const OpenCodeCommitPlugin: Plugin = async (
           groups,
         });
 
-        output.parts = [
+        replaceOutputParts(
+          output,
           textPart(formatOutput({ ...result, request, missingFolders })),
-        ];
+        );
         return;
       } catch (error) {
         await log("error", "Commit message generation failed", {
@@ -187,9 +195,10 @@ export const OpenCodeCommitPlugin: Plugin = async (
           sessionID: input.sessionID,
         });
 
-        output.parts = [
+        replaceOutputParts(
+          output,
           textPart(`Failed to generate commit message: ${String(error)}`),
-        ];
+        );
         return;
       }
     },
