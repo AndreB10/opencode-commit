@@ -1,6 +1,6 @@
 {
   "name": "@andre-barbosa/opencode-commit",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "OpenCode plugin that generates Conventional Commit messages and split commit plans via /commit using a configured model",
   "type": "module",
   "main": "dist/index.js",
