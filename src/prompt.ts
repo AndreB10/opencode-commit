@@ -1,12 +1,46 @@
-import type { GitContext } from "./types.js";
+import type {
+  ChangedFile,
+  CommitGroup,
+  CommitRequest,
+  GitContext,
+} from "./types.js";
 
 export const COMMIT_SYSTEM_PROMPT = [
   "You are a commit message writer.",
-  "Given git changes and context, produce a single commit message.",
-  "Output only the commit message text.",
+  "Given git changes and context, produce the requested commit output.",
+  "Output only the requested commit message or commit plan.",
 ].join("\n");
 
-export function buildCommitPrompt(context: GitContext, userHint?: string): string {
+function formatChangedFiles(files: ChangedFile[]): string {
+  if (files.length === 0) return "(none)";
+
+  const filesByPath = new Map<string, string[]>();
+  for (const file of files) {
+    filesByPath.set(file.path, [
+      ...(filesByPath.get(file.path) ?? []),
+      `${file.source}:${file.status}`,
+    ]);
+  }
+
+  return Array.from(filesByPath, ([path, details]) =>
+    `- ${path} (${details.join(", ")})`,
+  ).join("\n");
+}
+
+function formatCommitGroups(groups: CommitGroup[]): string {
+  if (groups.length === 0) return "(none)";
+
+  return groups
+    .map((group) => `### ${group.name}\n${formatChangedFiles(group.files)}`)
+    .join("\n\n");
+}
+
+export function buildCommitPrompt(input: {
+  context: GitContext;
+  request: CommitRequest;
+  groups?: CommitGroup[];
+}): string {
+  const { context, request } = input;
   const recentCommitsBlock =
     context.recentCommits.length > 0
       ? context.recentCommits.map((subject) => `- ${subject}`).join("\n")
@@ -15,11 +49,66 @@ export function buildCommitPrompt(context: GitContext, userHint?: string): strin
     context.untrackedFiles.length > 0
       ? context.untrackedFiles.map((file) => `- ${file}`).join("\n")
       : "(none)";
+  const changedFilesBlock = formatChangedFiles(context.changedFiles);
 
   const hintBlock =
-    userHint && userHint.trim().length > 0
-      ? `\nAdditional instruction from the user:\n${userHint.trim()}\n`
+    request.mode === "single" && request.userHint
+      ? `\nAdditional instruction from the user:\n${request.userHint}\n`
       : "";
+
+  const contextBlock = `Branch: ${context.branch}
+
+Recent commit subjects (align scope naming when sensible):
+${recentCommitsBlock}
+
+Changed files:
+${changedFilesBlock}
+
+Staged tracked changes (stat):
+${context.stagedStat || "(empty)"}
+
+Staged tracked diff:
+${context.stagedDiff || "(empty)"}
+
+Unstaged tracked changes (stat):
+${context.unstagedStat || "(empty)"}
+
+Unstaged tracked diff:
+${context.unstagedDiff || "(empty)"}
+
+Untracked files (filenames only, contents not read):
+${untrackedFilesBlock}`;
+
+  if (request.mode === "split") {
+    return `Write a split commit plan for the uncommitted changes below.
+
+Format rules (Conventional Commits - required):
+- Produce one commit plan item for each split group listed below
+- Do NOT include groups that are not listed below
+- Each message subject MUST use type(scope): description or type: description
+- Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
+- Scope is optional but preferred when changes are localized (e.g. feat(auth):, fix(api):)
+- Description: imperative mood, lowercase, no trailing period, max 72 chars for the full subject
+- Optional body: blank line after subject, then bullet points; keep lines <= 72 chars
+- Breaking changes: use feat!: or fix!: prefix, or add a BREAKING CHANGE: footer
+- Use staged and unstaged tracked diffs as the source of truth
+- Untracked files are filenames only; do not infer contents that are not shown
+- Output ONLY the commit plan markdown - no top-level title, no commentary, no tool calls
+
+Output format for each group:
+### group-name
+Files:
+- path/to/file
+
+Message:
+fenced text block containing only that group's commit message
+
+Split groups:
+${formatCommitGroups(input.groups ?? [])}
+
+${contextBlock}
+`;
+  }
 
   return `Write a git commit message for the uncommitted changes below.
 
@@ -43,25 +132,7 @@ feat(auth): add oauth login flow
 
 fix(api): handle null response from user endpoint
 ${hintBlock}
-Branch: ${context.branch}
-
-Recent commit subjects (align scope naming when sensible):
-${recentCommitsBlock}
-
-Staged tracked changes (stat):
-${context.stagedStat || "(empty)"}
-
-Staged tracked diff:
-${context.stagedDiff || "(empty)"}
-
-Unstaged tracked changes (stat):
-${context.unstagedStat || "(empty)"}
-
-Unstaged tracked diff:
-${context.unstagedDiff || "(empty)"}
-
-Untracked files (filenames only, contents not read):
-${untrackedFilesBlock}
+${contextBlock}
 `;
 }
 

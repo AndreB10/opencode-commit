@@ -1,22 +1,27 @@
 {
   "name": "@andre-barbosa/opencode-commit",
-  "version": "0.1.3",
-  "description": "OpenCode plugin that generates Conventional Commit messages via /commit using a configured model",
+  "version": "0.1.4",
+  "description": "OpenCode plugin that generates Conventional Commit messages and split commit plans via /commit using a configured model",
   "type": "module",
-  "main": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   },
   "files": [
-    "src",
-    "commands",
+    "dist",
     "opencode.example.json",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "npm run typecheck"
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run typecheck && npm run build"
   },
   "keywords": [
     "opencode",

@@ -1,5 +1,5 @@
 import type { createOpencodeClient } from "@opencode-ai/sdk";
-import type { ModelRef } from "./types.js";
+import type { CommitGroup, CommitRequest, ModelRef } from "./types.js";
 import {
   buildCommitPrompt,
   COMMIT_SYSTEM_PROMPT,
@@ -46,14 +46,19 @@ export async function generateCommitMessage(input: {
   parentSessionID: string;
   model: ModelRef;
   context: GitContext;
-  userHint?: string;
-}): Promise<{ message: string; childSessionID: string; modelLabel: string }> {
+  request: CommitRequest;
+  groups?: CommitGroup[];
+}): Promise<{ content: string; childSessionID: string; modelLabel: string }> {
   const childSessionID = await createChildSession(
     input.client,
     input.parentSessionID,
   );
 
-  const prompt = buildCommitPrompt(input.context, input.userHint);
+  const prompt = buildCommitPrompt({
+    context: input.context,
+    request: input.request,
+    groups: input.groups,
+  });
   const body = {
     agent: COMMIT_AGENT,
     model: input.model,
@@ -82,7 +87,7 @@ export async function generateCommitMessage(input: {
   }
 
   return {
-    message: stripCodeFences(rawText),
+    content: stripCodeFences(rawText),
     childSessionID,
     modelLabel: formatModelRef(input.model),
   };

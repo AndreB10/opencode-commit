@@ -2,10 +2,19 @@ import type { Plugin } from "@opencode-ai/plugin";
 import type { Part } from "@opencode-ai/sdk";
 import { gatherGitContext, isGitRepo } from "./git.js";
 import { generateCommitMessage } from "./generate.js";
-import { parseModelRef, resolveConfig, type PluginOptions } from "./types.js";
+import {
+  buildCommitGroups,
+  parseCommitRequest,
+  parseModelRef,
+  resolveConfig,
+  type CommitGroup,
+  type CommitRequest,
+  type PluginOptions,
+} from "./types.js";
 
 const COMMAND_NAME = "commit";
-const COMMAND_DESCRIPTION = "Generate a commit message from uncommitted changes";
+const COMMAND_DESCRIPTION =
+  "Generate a commit message or split commit plan from uncommitted changes";
 const COMMAND_TEMPLATE = "Handled by the opencode-commit plugin.";
 const SKIP_ERROR = "skip";
 
@@ -14,21 +23,49 @@ function textPart(text: string): Part {
 }
 
 function formatOutput(input: {
-  message: string;
+  content: string;
   modelLabel: string;
   childSessionID: string;
+  request: CommitRequest;
+  missingFolders?: string[];
 }): string {
+  if (input.request.mode === "split") {
+    const missingFolders = input.missingFolders ?? [];
+    const missingBlock =
+      missingFolders.length > 0
+        ? [
+            `No changes found for requested folder(s): ${formatFolderList(missingFolders)}.`,
+            "",
+          ]
+        : [];
+
+    return [
+      "## Suggested commit plan",
+      "",
+      ...missingBlock,
+      input.content,
+      "",
+      `Model: \`${input.modelLabel}\` · Child session: \`${input.childSessionID}\``,
+      "",
+      "Stage the listed files for each commit, then run `git commit` with the suggested message.",
+    ].join("\n");
+  }
+
   return [
     "## Suggested commit message",
     "",
     "```",
-    input.message,
+    input.content,
     "```",
     "",
     `Model: \`${input.modelLabel}\` · Child session: \`${input.childSessionID}\``,
     "",
     "Copy the message above and run `git commit` when ready.",
   ].join("\n");
+}
+
+function formatFolderList(folders: string[]): string {
+  return folders.map((folder) => `\`${folder}\``).join(", ");
 }
 
 const skipCommand = (): never => {
@@ -61,12 +98,13 @@ export const OpenCodeCommitPlugin: Plugin = async (
   return {
     config: async (cfg) => {
       cfg.command ??= {};
-      cfg.command[COMMAND_NAME] ??= {
+      cfg.command[COMMAND_NAME] = {
         description: COMMAND_DESCRIPTION,
         template: COMMAND_TEMPLATE,
+        subtask: true,
       };
 
-      if (config.model && !cfg.command[COMMAND_NAME].model) {
+      if (config.model) {
         cfg.command[COMMAND_NAME].model = config.model;
       }
     },
@@ -89,6 +127,7 @@ export const OpenCodeCommitPlugin: Plugin = async (
         }
 
         const model = parseModelRef(config.model);
+        const request = parseCommitRequest(input.arguments);
 
         if (!(await isGitRepo($, worktree))) {
           output.parts = [
@@ -110,22 +149,43 @@ export const OpenCodeCommitPlugin: Plugin = async (
           return skipCommand();
         }
 
+        let groups: CommitGroup[] | undefined;
+        let missingFolders: string[] = [];
+        if (request.mode === "split") {
+          const grouped = buildCommitGroups(context.changedFiles, request.folders);
+          groups = grouped.groups;
+          missingFolders = grouped.missingFolders;
+
+          if (groups.length === 0) {
+            const target =
+              request.folders.length > 0
+                ? `requested folder(s): ${formatFolderList(request.folders)}`
+                : "changed folders";
+            output.parts = [textPart(`No changes found for ${target}.`)];
+            return skipCommand();
+          }
+        }
+
         await log("info", "Generating commit message", {
           model: config.model,
+          mode: request.mode,
+          folders: request.mode === "split" ? request.folders : undefined,
           branch: context.branch,
           sessionID: input.sessionID,
         });
 
-        const userHint = input.arguments?.trim() || undefined;
         const result = await generateCommitMessage({
           client,
           parentSessionID: input.sessionID,
           model,
           context,
-          userHint,
+          request,
+          groups,
         });
 
-        output.parts = [textPart(formatOutput(result))];
+        output.parts = [
+          textPart(formatOutput({ ...result, request, missingFolders })),
+        ];
         return skipCommand();
       } catch (error) {
         if (error instanceof Error && error.message === SKIP_ERROR) {
